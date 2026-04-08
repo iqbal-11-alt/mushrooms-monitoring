@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:monitoring_jamur/core/theme/app_theme.dart';
+import 'package:monitoring_jamur/features/home/presentation/pages/statistics_page.dart';
 import 'dart:math' as math;
 
 class DashboardPage extends StatefulWidget {
@@ -12,6 +13,12 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   // Demo humidity value
   double _humidity = 85.0;
+  bool _isAutoMode = true;
+  bool _isPumpManual = false;
+  bool _isLightManual = false;
+
+  bool get _pumpStatus => _isAutoMode ? (_humidity < 80) : _isPumpManual;
+  bool get _lightStatus => _isAutoMode ? (_humidity > 90) : _isLightManual;
 
   @override
   Widget build(BuildContext context) {
@@ -74,8 +81,200 @@ class _DashboardPageState extends State<DashboardPage> {
                   ],
                 ),
               ),
+              const SizedBox(height: 32),
+              // Control Mode Selector
+              _buildModeSelector(),
+              const SizedBox(height: 24),
+              // Device Controls
+              _buildDeviceControls(),
+              const SizedBox(height: 32),
+              // Statistics Button
+              _buildStatisticsButton(context),
+              const SizedBox(height: 32),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModeSelector() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _isAutoMode = true),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: _isAutoMode ? AppTheme.primaryGreen : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'Otomatis',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: _isAutoMode ? Colors.white : AppTheme.textLight,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _isAutoMode = false),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: !_isAutoMode ? AppTheme.primaryGreen : Colors.transparent,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'Manual',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: !_isAutoMode ? Colors.white : AppTheme.textLight,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeviceControls() {
+    return Column(
+      children: [
+        _buildDeviceTile(
+          title: 'Pompa Air',
+          isOn: _pumpStatus,
+          onChanged: _isAutoMode ? null : (val) => setState(() => _isPumpManual = val),
+        ),
+        const SizedBox(height: 16),
+        _buildDeviceTile(
+          title: 'Lampu Pemanas',
+          isOn: _lightStatus,
+          onChanged: _isAutoMode ? null : (val) => setState(() => _isLightManual = val),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDeviceTile({
+    required String title,
+    required bool isOn,
+    required ValueChanged<bool>? onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceWhite,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(5),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: isOn ? AppTheme.primaryGreen.withAlpha(30) : Colors.grey.withAlpha(20),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              title.contains('Pompa') ? Icons.water_drop_rounded : Icons.lightbulb_rounded,
+              color: isOn ? AppTheme.primaryGreen : Colors.grey,
+              size: 28,
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textDark,
+              ),
+            ),
+          ),
+          if (onChanged == null)
+            Text(
+              isOn ? 'MENYALA' : 'MATI',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                color: isOn ? AppTheme.primaryGreen : AppTheme.textLight,
+              ),
+            )
+          else
+            Switch(
+              value: isOn,
+              onChanged: onChanged,
+              activeColor: AppTheme.primaryGreen,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatisticsButton(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const StatisticsPage()),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceWhite,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryGreen.withAlpha(20),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.bar_chart_rounded, color: AppTheme.primaryGreen, size: 28),
+            SizedBox(width: 12),
+            Text(
+              'Lihat Statistik',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryGreen,
+              ),
+            ),
+          ],
         ),
       ),
     );

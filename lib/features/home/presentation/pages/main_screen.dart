@@ -52,26 +52,52 @@ class _MainScreenState extends State<MainScreen> {
 
   Widget _buildAnimatedBottomBar() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+      height: 70,
       decoration: BoxDecoration(
         color: AppTheme.surfaceWhite,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(35),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            blurRadius: 25,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildNavItem(0, Icons.dashboard_outlined, Icons.dashboard, 'Dashboard'),
-          _buildNavItem(1, Icons.history_outlined, Icons.history, 'History'),
-          _buildNavItem(2, Icons.person_outline, Icons.person, 'Account'),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          double totalWidth = constraints.maxWidth;
+          double itemWidth = totalWidth / 3;
+          
+          return Stack(
+            children: [
+              // Animated Background Bubble
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.elasticOut,
+                left: _currentIndex * itemWidth + (itemWidth * 0.15),
+                top: 12,
+                child: Container(
+                  width: itemWidth * 0.7,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryGreen.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(23),
+                  ),
+                ),
+              ),
+              // Navigation Items
+              Row(
+                children: [
+                  _buildNavItem(0, Icons.grid_view_outlined, Icons.grid_view_rounded, 'Home'),
+                  _buildNavItem(1, Icons.history_rounded, Icons.history_rounded, 'History'),
+                  _buildNavItem(2, Icons.person_outline_rounded, Icons.person_rounded, 'Account'),
+                ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -79,44 +105,38 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildNavItem(int index, IconData outlineIcon, IconData filledIcon, String label) {
     bool isSelected = _currentIndex == index;
     
-    return GestureDetector(
-      onTap: () => _onItemTapped(index),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutBack,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryGreen.withOpacity(0.12) : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _onItemTapped(index),
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             AnimatedScale(
-              scale: isSelected ? 1.15 : 1.0,
+              scale: isSelected ? 1.0 : 0.9,
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOutBack,
-              child: Icon(
-                isSelected ? filledIcon : outlineIcon,
-                color: isSelected ? AppTheme.primaryGreen : AppTheme.textLight,
-                size: 26,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                child: Icon(
+                  isSelected ? filledIcon : outlineIcon,
+                  color: isSelected ? AppTheme.primaryGreen : AppTheme.textLight.withOpacity(0.6),
+                  size: 26,
+                ),
               ),
             ),
-            if (isSelected) ...[
-              const SizedBox(width: 8),
-              AnimatedOpacity(
-                opacity: isSelected ? 1.0 : 0.0,
+            if (isSelected) 
+              AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 child: Text(
                   label,
                   style: const TextStyle(
-                    color: AppTheme.primaryGreen,
+                    fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    color: AppTheme.primaryGreen,
                   ),
                 ),
               ),
-            ],
           ],
         ),
       ),

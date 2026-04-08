@@ -3,6 +3,7 @@ import '../../data/user_repository.dart';
 import 'register_page.dart';
 import 'package:monitoring_jamur/core/theme/app_theme.dart';
 import 'package:monitoring_jamur/features/home/presentation/pages/main_screen.dart';
+import 'package:monitoring_jamur/core/session/user_session.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -33,10 +34,11 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = false);
 
     if (user != null) {
+      await UserSession.saveSession(_usernameController.text);
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => MainScreen()),
+          MaterialPageRoute(builder: (context) => const MainScreen()),
           (route) => false,
         );
       }
@@ -56,10 +58,10 @@ class _LoginPageState extends State<LoginPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.nature_outlined,
-                size: 80,
-                color: AppTheme.primaryGreen,
+              Image.asset(
+                'lib/assets/mushroom.png',
+                height: 120,
+                fit: BoxFit.contain,
               ),
               const SizedBox(height: 16),
               const Text(
