@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:monitoring_jamur/core/constants/supabase_config.dart';
 import 'package:monitoring_jamur/core/theme/app_theme.dart';
 import 'package:monitoring_jamur/features/auth/presentation/pages/login_page.dart';
+import 'package:monitoring_jamur/features/auth/presentation/pages/splash_screen.dart';
 import 'package:monitoring_jamur/features/home/presentation/pages/main_screen.dart';
 import 'package:monitoring_jamur/core/session/user_session.dart';
 
@@ -28,7 +29,7 @@ class MyApp extends StatelessWidget {
       title: 'Mushroom Monitor',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: UserSession.isLoggedIn ? const MainScreen() : const LoginPage(),
+      home: const SplashScreen(),
     );
   }
 }
