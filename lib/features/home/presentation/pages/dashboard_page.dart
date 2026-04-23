@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:monitoring_jamur/core/theme/app_theme.dart';
 import 'package:monitoring_jamur/features/home/presentation/pages/statistics_page.dart';
+import 'package:monitoring_jamur/core/services/mqtt_service.dart';
 import 'dart:math' as math;
 
 class DashboardPage extends StatefulWidget {
@@ -12,13 +13,57 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   // Demo humidity value
-  double _humidity = 85.0;
+  double _humidity = 1;
   bool _isAutoMode = true;
   bool _isPumpManual = false;
   bool _isLightManual = false;
 
   bool get _pumpStatus => _isAutoMode ? (_humidity < 80) : _isPumpManual;
   bool get _lightStatus => _isAutoMode ? (_humidity > 90) : _isLightManual;
+
+  final MqttService _mqttService = MqttService();
+
+  @override
+  void initState() {
+    super.initState();
+    _mqttService.init();
+    
+    // Listen to all changes
+    _mqttService.isConnected.addListener(_onMqttChanged);
+    _mqttService.isHardwareOnline.addListener(_onMqttChanged);
+    _mqttService.humidity.addListener(_onMqttChanged);
+    _mqttService.relayStatus.addListener(_onMqttChanged);
+    _mqttService.isAutoMode.addListener(_onMqttChanged);
+    _mqttService.isPumpOn.addListener(_onMqttChanged);
+    _mqttService.isLightOn.addListener(_onMqttChanged);
+  }
+
+  @override
+  void dispose() {
+    _mqttService.isConnected.removeListener(_onMqttChanged);
+    _mqttService.isHardwareOnline.removeListener(_onMqttChanged);
+    _mqttService.humidity.removeListener(_onMqttChanged);
+    _mqttService.relayStatus.removeListener(_onMqttChanged);
+    _mqttService.isAutoMode.removeListener(_onMqttChanged);
+    _mqttService.isPumpOn.removeListener(_onMqttChanged);
+    _mqttService.isLightOn.removeListener(_onMqttChanged);
+    super.dispose();
+  }
+
+  void _onMqttChanged() {
+    if (mounted) {
+      setState(() {
+        _humidity = _mqttService.humidity.value;
+        _isAutoMode = _mqttService.isAutoMode.value;
+        // In Auto mode, we follow the status reported by hardware
+        // In Manual mode, we show what we set locally (which will be confirmed by hardware status later)
+        if (_isAutoMode) {
+          _isPumpManual = _mqttService.isPumpOn.value;
+          _isLightManual = _mqttService.isLightOn.value;
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,82 +144,106 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildModeSelector() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(5),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+    return ValueListenableBuilder<bool>(
+      valueListenable: _mqttService.isAutoMode,
+      builder: (context, isAuto, _) {
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(5),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _isAutoMode = true),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: _isAutoMode ? AppTheme.primaryGreen : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  'Otomatis',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: _isAutoMode ? Colors.white : AppTheme.textLight,
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _mqttService.publishControl('mode', 'auto'),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isAuto ? AppTheme.primaryGreen : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Otomatis',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isAuto ? Colors.white : AppTheme.textLight,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _isAutoMode = false),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                decoration: BoxDecoration(
-                  color: !_isAutoMode ? AppTheme.primaryGreen : Colors.transparent,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  'Manual',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: !_isAutoMode ? Colors.white : AppTheme.textLight,
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _mqttService.publishControl('mode', 'manual'),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: !isAuto ? AppTheme.primaryGreen : Colors.transparent,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      'Manual',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: !isAuto ? Colors.white : AppTheme.textLight,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildDeviceControls() {
-    return Column(
-      children: [
-        _buildDeviceTile(
-          title: 'Pompa Air',
-          isOn: _pumpStatus,
-          onChanged: _isAutoMode ? null : (val) => setState(() => _isPumpManual = val),
-        ),
-        const SizedBox(height: 16),
-        _buildDeviceTile(
-          title: 'Lampu Pemanas',
-          isOn: _lightStatus,
-          onChanged: _isAutoMode ? null : (val) => setState(() => _isLightManual = val),
-        ),
-      ],
+    return ValueListenableBuilder<bool>(
+      valueListenable: _mqttService.isAutoMode,
+      builder: (context, isAuto, _) {
+        return Column(
+          children: [
+            ValueListenableBuilder<bool>(
+              valueListenable: _mqttService.isPumpOn,
+              builder: (context, isOn, _) {
+                return _buildDeviceTile(
+                  title: 'Pompa Air',
+                  isOn: isOn,
+                  onChanged: isAuto ? null : (val) {
+                    _mqttService.publishControl('pump', val ? 'on' : 'off');
+                  },
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            ValueListenableBuilder<bool>(
+              valueListenable: _mqttService.isLightOn,
+              builder: (context, isOn, _) {
+                return _buildDeviceTile(
+                  title: 'Lampu Pemanas',
+                  isOn: isOn,
+                  onChanged: isAuto ? null : (val) {
+                    _mqttService.publishControl('light', val ? 'on' : 'off');
+                  },
+                );
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -283,7 +352,8 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _buildStatusCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      constraints: const BoxConstraints(minHeight: 104), // Fixed minimum height
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: AppTheme.surfaceWhite,
         borderRadius: BorderRadius.circular(24),
@@ -296,7 +366,9 @@ class _DashboardPageState extends State<DashboardPage> {
         ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // Fixed size image container
           Container(
             width: 64,
             height: 64,
@@ -311,32 +383,104 @@ class _DashboardPageState extends State<DashboardPage> {
             ),
           ),
           const SizedBox(width: 20),
-          const Expanded(
+          // Scroll-stable text column
+          Expanded(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Monitor Jamur',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.primaryGreen,
+                    height: 1.2, // Consistent leading
                   ),
                 ),
-                Text(
-                  'Active & Monitoring',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppTheme.textLight,
-                  ),
+                const SizedBox(height: 4),
+                ValueListenableBuilder<AppMqttStatus>(
+                  valueListenable: _mqttService.connectionState,
+                  builder: (context, state, _) {
+                    return ValueListenableBuilder<bool>(
+                      valueListenable: _mqttService.isHardwareOnline,
+                      builder: (context, hwOnline, _) {
+                        String statusText = "";
+                        Color statusColor = Colors.red;
+                        
+                        if (state == AppMqttStatus.connecting) {
+                          statusText = "Connecting to Broker...";
+                          statusColor = Colors.orange;
+                        } else if (state == AppMqttStatus.connected) {
+                          if (hwOnline) {
+                            statusText = "All Online ✅";
+                            statusColor = AppTheme.primaryGreen;
+                          } else {
+                            statusText = "Broker OK (Hardware Offline)";
+                            statusColor = Colors.blue;
+                          }
+                        } else if (state == AppMqttStatus.error) {
+                          statusText = "Connection Error ❌";
+                          statusColor = Colors.red;
+                        } else {
+                          statusText = "MQTT Offline";
+                          statusColor = Colors.red;
+                        }
+                        
+                        return SizedBox(
+                          height: 20,
+                          child: Text(
+                            statusText,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: statusColor,
+                              fontWeight: FontWeight.bold,
+                              height: 1.0,
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
                 ),
               ],
             ),
           ),
-          const Icon(
-            Icons.check_circle,
-            color: AppTheme.primaryGreen,
-            size: 28,
+          // Fixed width icon slot
+          Container(
+            width: 32,
+            alignment: Alignment.center,
+            child: ValueListenableBuilder<AppMqttStatus>(
+              valueListenable: _mqttService.connectionState,
+              builder: (context, state, _) {
+                return ValueListenableBuilder<bool>(
+                  valueListenable: _mqttService.isHardwareOnline,
+                  builder: (context, hwOnline, _) {
+                    IconData iconData = Icons.offline_bolt_rounded;
+                    Color iconColor = Colors.red;
+                    
+                    if (state == AppMqttStatus.connecting) {
+                      iconData = Icons.hourglass_empty_rounded;
+                      iconColor = Colors.orange;
+                    } else if (state == AppMqttStatus.connected) {
+                      if (hwOnline) {
+                        iconData = Icons.check_circle;
+                        iconColor = AppTheme.primaryGreen;
+                      } else {
+                        iconData = Icons.wifi_tethering_rounded;
+                        iconColor = Colors.blue;
+                      }
+                    }
+                    
+                    return Icon(
+                      iconData,
+                      color: iconColor,
+                      size: 28,
+                    );
+                  },
+                );
+              },
+            ),
           ),
         ],
       ),
