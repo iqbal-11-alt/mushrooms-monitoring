@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:monitoring_jamur/core/theme/app_theme.dart';
 import 'package:monitoring_jamur/features/home/presentation/pages/statistics_page.dart';
 import 'package:monitoring_jamur/core/services/mqtt_service.dart';
+import 'package:monitoring_jamur/features/history/data/history_repository.dart';
 import 'dart:math' as math;
 
 class DashboardPage extends StatefulWidget {
@@ -22,6 +23,7 @@ class _DashboardPageState extends State<DashboardPage> {
   bool get _lightStatus => _isAutoMode ? (_humidity > 90) : _isLightManual;
 
   final MqttService _mqttService = MqttService();
+  final HistoryRepository _historyRepository = HistoryRepository();
 
   @override
   void initState() {
@@ -132,7 +134,10 @@ class _DashboardPageState extends State<DashboardPage> {
               const SizedBox(height: 24),
               // Device Controls
               _buildDeviceControls(),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+              // Save to History Button
+              _buildSaveToHistoryButton(),
+              const SizedBox(height: 16),
               // Statistics Button
               _buildStatisticsButton(context),
               const SizedBox(height: 32),
@@ -222,9 +227,15 @@ class _DashboardPageState extends State<DashboardPage> {
                 return _buildDeviceTile(
                   title: 'Pompa Air',
                   isOn: isOn,
-                  onChanged: isAuto ? null : (val) {
-                    _mqttService.publishControl('pump', val ? 'on' : 'off');
-                  },
+                  onChanged: isAuto
+                      ? null
+                      : (val) {
+                          _mqttService.publishControl(
+                              'pump', val ? 'on' : 'off');
+                          if (val) {
+                            _saveManualAction('Pompa Air', true);
+                          }
+                        },
                 );
               },
             ),
@@ -235,9 +246,15 @@ class _DashboardPageState extends State<DashboardPage> {
                 return _buildDeviceTile(
                   title: 'Lampu Pemanas',
                   isOn: isOn,
-                  onChanged: isAuto ? null : (val) {
-                    _mqttService.publishControl('light', val ? 'on' : 'off');
-                  },
+                  onChanged: isAuto
+                      ? null
+                      : (val) {
+                          _mqttService.publishControl(
+                              'light', val ? 'on' : 'off');
+                          if (val) {
+                            _saveManualAction('Lampu Pemanas', true);
+                          }
+                        },
                 );
               },
             ),
@@ -341,6 +358,123 @@ class _DashboardPageState extends State<DashboardPage> {
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.primaryGreen,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getHumidityStatus(double humidity) {
+    if (humidity < 70) return 'Sangat Kering';
+    if (humidity < 80) return 'Kering - Lembab';
+    if (humidity <= 90) return 'Lembab (Ideal)';
+    return 'Sangat Lembab';
+  }
+
+  Future<void> _saveToHistory() async {
+    final status = _getHumidityStatus(_humidity);
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+      ),
+    );
+
+    final mode = _isAutoMode ? 'OTOMATIS' : 'MANUAL';
+    final pumpText = _mqttService.isPumpOn.value ? 'MENYALA - $mode' : 'MATI';
+    final lightText = _mqttService.isLightOn.value ? 'MENYALA - $mode' : 'MATI';
+
+    final success = await _historyRepository.saveHumidityData(
+      humidity: _humidity,
+      status: status,
+      lightStatus: lightText,
+      pumpStatus: pumpText,
+    );
+
+    if (mounted) {
+      Navigator.pop(context); // Pop loading
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              success ? 'Data berhasil disimpan ke histori!' : 'Gagal menyimpan data'),
+          backgroundColor: success ? AppTheme.primaryGreen : Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(24),
+        ),
+      );
+    }
+  }
+
+  Future<void> _saveManualAction(String device, bool isOn) async {
+    final status = _getHumidityStatus(_humidity);
+
+    // Prepare current statuses
+    String pumpStatusText = _mqttService.isPumpOn.value ? 'MENYALA - MANUAL' : 'MATI';
+    String lightStatusText = _mqttService.isLightOn.value ? 'MENYALA - MANUAL' : 'MATI';
+
+    // Override with the new action state
+    if (device.contains('Pompa')) {
+      pumpStatusText = 'MENYALA - MANUAL';
+    } else {
+      lightStatusText = 'MENYALA - MANUAL';
+    }
+
+    await _historyRepository.saveHumidityData(
+      humidity: _humidity,
+      status: status,
+      lightStatus: lightStatusText,
+      pumpStatus: pumpStatusText,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$device dinyalakan (Data tersimpan!)'),
+          backgroundColor: AppTheme.primaryGreen,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(24),
+        ),
+      );
+    }
+  }
+
+  Widget _buildSaveToHistoryButton() {
+    return GestureDetector(
+      onTap: _saveToHistory,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryGreen,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryGreen.withAlpha(40),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.save_rounded, color: Colors.white, size: 24),
+            SizedBox(width: 12),
+            Text(
+              'Simpan ke Histori',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
               ),
             ),
           ],
