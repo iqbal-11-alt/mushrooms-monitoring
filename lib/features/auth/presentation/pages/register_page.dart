@@ -14,6 +14,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _userRepo = UserRepository();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   void _register() async {
     if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
@@ -87,10 +88,21 @@ class _RegisterPageState extends State<RegisterPage> {
             const SizedBox(height: 16),
             TextField(
               controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
+              obscureText: _obscurePassword,
+              decoration: InputDecoration(
                 hintText: 'Create Password',
-                prefixIcon: Icon(Icons.lock_outline),
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    color: AppTheme.primaryGreen.withOpacity(0.7),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                ),
               ),
             ),
             const SizedBox(height: 40),

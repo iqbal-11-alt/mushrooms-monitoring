@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:monitoring_jamur/core/theme/app_theme.dart';
-import 'package:monitoring_jamur/features/home/presentation/pages/statistics_page.dart';
 import 'package:monitoring_jamur/core/services/mqtt_service.dart';
 import 'package:monitoring_jamur/features/history/data/history_repository.dart';
 import 'dart:math' as math;
@@ -137,9 +136,6 @@ class _DashboardPageState extends State<DashboardPage> {
               const SizedBox(height: 24),
               // Save to History Button
               _buildSaveToHistoryButton(),
-              const SizedBox(height: 16),
-              // Statistics Button
-              _buildStatisticsButton(context),
               const SizedBox(height: 32),
             ],
           ),
@@ -233,7 +229,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           _mqttService.publishControl(
                               'pump', val ? 'on' : 'off');
                           if (val) {
-                            _saveManualAction('Pompa Air', true);
+                            _showActionFeedback('Pompa Air');
                           }
                         },
                 );
@@ -252,7 +248,7 @@ class _DashboardPageState extends State<DashboardPage> {
                           _mqttService.publishControl(
                               'light', val ? 'on' : 'off');
                           if (val) {
-                            _saveManualAction('Lampu Pemanas', true);
+                            _showActionFeedback('Lampu Pemanas');
                           }
                         },
                 );
@@ -326,45 +322,6 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildStatisticsButton(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const StatisticsPage()),
-        );
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceWhite,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.primaryGreen.withAlpha(20),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.bar_chart_rounded, color: AppTheme.primaryGreen, size: 28),
-            SizedBox(width: 12),
-            Text(
-              'Lihat Statistik',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryGreen,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   String _getHumidityStatus(double humidity) {
     if (humidity < 70) return 'Sangat Kering';
@@ -412,31 +369,11 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Future<void> _saveManualAction(String device, bool isOn) async {
-    final status = _getHumidityStatus(_humidity);
-
-    // Prepare current statuses
-    String pumpStatusText = _mqttService.isPumpOn.value ? 'MENYALA - MANUAL' : 'MATI';
-    String lightStatusText = _mqttService.isLightOn.value ? 'MENYALA - MANUAL' : 'MATI';
-
-    // Override with the new action state
-    if (device.contains('Pompa')) {
-      pumpStatusText = 'MENYALA - MANUAL';
-    } else {
-      lightStatusText = 'MENYALA - MANUAL';
-    }
-
-    await _historyRepository.saveHumidityData(
-      humidity: _humidity,
-      status: status,
-      lightStatus: lightStatusText,
-      pumpStatus: pumpStatusText,
-    );
-
+  void _showActionFeedback(String device) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$device dinyalakan (Data tersimpan!)'),
+          content: Text('$device dinyalakan (Perintah terkirim ke alat!)'),
           backgroundColor: AppTheme.primaryGreen,
           duration: const Duration(seconds: 2),
           behavior: SnackBarBehavior.floating,
@@ -754,19 +691,14 @@ class _InstructionPanel extends StatelessWidget {
       subMessage = 'Tidak optimal untuk pertumbuhan aktif. Pompa menyala (penyiraman aktif)';
       icon = Icons.warning_amber_rounded;
       color = Colors.orange.shade800;
-    } else if (humidity >= 70 && humidity < 80) {
-      message = 'Kering - Lembab';
-      subMessage = 'Mulai mendekati kondisi ideal. Pompa menyala (penyiraman terbatas)';
-      icon = Icons.info_outline_rounded;
-      color = Colors.blueGrey;
-    } else if (humidity >= 80 && humidity <= 90) {
+    }else if (humidity >= 70 && humidity <= 90) {
       message = 'Lembab (Ideal)';
-      subMessage = 'Kondisi optimal pertumbuhan jamur tiram. Pompa mati';
+      subMessage = 'Kondisi optimal pertumbuhan jamur tiram.';
       icon = Icons.check_circle_outline_rounded;
       color = AppTheme.primaryGreen;
     } else {
       message = 'Sangat Lembab';
-      subMessage = 'Menyebabkan kontaminasi. Pompa mati';
+      subMessage = 'Menyebabkan kontaminasi.Lampu Menyala';
       icon = Icons.error_outline_rounded;
       color = Colors.red.shade700;
     }

@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:monitoring_jamur/core/theme/app_theme.dart';
 import 'package:monitoring_jamur/core/session/user_session.dart';
 import 'package:monitoring_jamur/features/auth/presentation/pages/login_page.dart';
+import 'package:monitoring_jamur/features/account/presentation/pages/manage_account_page.dart';
 
-class AccountPage extends StatelessWidget {
+class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
 
+  @override
+  State<AccountPage> createState() => _AccountPageState();
+}
+
+class _AccountPageState extends State<AccountPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -68,10 +74,12 @@ class AccountPage extends StatelessWidget {
                     _buildMenuTile(
                       icon: Icons.settings_rounded,
                       title: 'Kelola Akun',
-                      onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Fitur Kelola Akun segera hadir')),
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const ManageAccountPage()),
                         );
+                        if (mounted) setState(() {});
                       },
                     ),
                     const SizedBox(height: 12),
@@ -81,7 +89,7 @@ class AccountPage extends StatelessWidget {
                       isDestructive: true,
                       onTap: () async {
                         await UserSession.logout();
-                        if (context.mounted) {
+                        if (mounted) {
                           Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(builder: (context) => const LoginPage()),
@@ -180,3 +188,4 @@ class AccountPage extends StatelessWidget {
     );
   }
 }
+
