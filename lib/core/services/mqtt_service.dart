@@ -34,7 +34,7 @@ class MqttService {
     final clientId = 'mj_debug_${Random().nextInt(999999)}';
 
     // FINAL ROBUST CONFIG: Back to EMQX Port 1883
-    client = MqttServerClient('broker.emqx.io', clientId);
+    client = MqttServerClient('broker.hivemq.com', clientId);
     client!.port = 1883;
     client!.setProtocolV311();
     client!.keepAlivePeriod = 60;
@@ -101,10 +101,10 @@ class MqttService {
     const topics = [
       "esp32/dht/kelembapan",
       "esp32/relay/status",
-      "esp32/status",
-      "esp32/status/mode",
-      "esp32/status/pump",
-      "esp32/status/light",
+      "esp32/statusiqbal",
+      "esp32/statusiqbal/mode",
+      "esp32/statusiqbal/pump",
+      "esp32/statusiqbal/light",
     ];
 
     for (final t in topics) {
@@ -127,20 +127,20 @@ class MqttService {
         relayStatus.value = payload.toUpperCase();
         break;
 
-      case "esp32/status":
+      case "esp32/statusiqbal":
         isHardwareOnline.value = (pt == "online");
         debugPrint('MQTT: Hardware -> ${isHardwareOnline.value}');
         break;
 
-      case "esp32/status/mode":
+      case "esp32/statusiqbal/mode":
         isAutoMode.value = (pt == "auto");
         break;
 
-      case "esp32/status/pump":
+      case "esp32/statusiqbal/pump":
         isPumpOn.value = (pt == "on");
         break;
 
-      case "esp32/status/light":
+      case "esp32/statusiqbal/light":
         isLightOn.value = (pt == "on");
         break;
     }
@@ -154,7 +154,7 @@ class MqttService {
     }
 
     final builder = MqttClientPayloadBuilder()..addString(value);
-    final topic = "esp32/status/$subTopic";
+    final topic = "esp32/statusiqbal/$subTopic";
 
     client!.publishMessage(
       topic,

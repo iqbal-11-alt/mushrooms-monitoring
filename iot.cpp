@@ -4,6 +4,7 @@
 #include <PubSubClient.h>
 #include <DHT.h>
 #include <time.h>
+
 // ================= SUPABASE =================
 const char* supabase_url = "https://hpmicdhjyboyeofphgae.supabase.co";
 const char* supabase_key = "sb_publishable_OB8e9y1OO0z3Y5xQ828YvA_T3jD16zT";
@@ -19,7 +20,6 @@ const int   daylightOffset_sec = 0;
 
 // ================= MQTT =================
 const char* mqtt_server = "broker.hivemq.com";
-
 WiFiClient espClient;
 PubSubClient client(espClient);
 
@@ -58,43 +58,44 @@ void uploadToSupabase(float hum, String status, String lamp, String pump) {
     // Ambil waktu saat ini
     struct tm timeinfo;
     String timeStr = "";
+
     if (getLocalTime(&timeinfo)) {
       char timeStringBuff[50];
       strftime(timeStringBuff, sizeof(timeStringBuff), "%H:%M:%S", &timeinfo);
       timeStr = String(timeStringBuff);
     }
-    
-    WiFiClientSecure clientSecure;
-    clientSecure.setInsecure(); 
-    HTTPClient http;
-    
-    String url = String(supabase_url) + "/rest/v1/humidity";
-    http.begin(clientSecure, url);
-    http.addHeader("Content-Type", "application/json");
-    http.addHeader("apikey", supabase_key);
-    http.addHeader("Authorization", "Bearer " + String(supabase_key));
-    http.addHeader("Prefer", "return=minimal");
 
-    String json = "{\"kelembapan\":" + String(hum) + 
-                  (timeStr != "" ? ",\"tanggal_upload\":\"" + timeStr + "\"" : "") +
-                  ",\"status\":\"" + status + "\"" +
-                  ",\"status_lampu\":\"" + lamp + "\"" +
-                  ",\"status_pompa\":\"" + pump + "\"}";
+    WiFiClientSecure clientSecure;  
+    clientSecure.setInsecure();   
+    HTTPClient http;  
+      
+    String url = String(supabase_url) + "/rest/v1/humidity";  
+    http.begin(clientSecure, url);  
+    http.addHeader("Content-Type", "application/json");  
+    http.addHeader("apikey", supabase_key);  
+    http.addHeader("Authorization", "Bearer " + String(supabase_key));  
+    http.addHeader("Prefer", "return=minimal");  
 
-    Serial.println("[Supabase] Uploading data...");
-    int httpCode = http.POST(json);
-    
-    if (httpCode >= 200 && httpCode < 300) {
-      Serial.printf("[Supabase] Berhasil Terkirim! Status: %d\n", httpCode);
-    } else if (httpCode > 0) {
-      String response = http.getString();
-      Serial.printf("[Supabase] Gagal Mengirim. HTTP Code: %d\n", httpCode);
-      Serial.printf("[Supabase] Alasan: %s\n", response.c_str());
-    } else {
-      Serial.printf("[Supabase] Gagal Koneksi. Error: %s\n", http.errorToString(httpCode).c_str());
-    }
-    
-    http.end();
+    String json = "{\"kelembapan\":" + String(hum) +   
+                  (timeStr != "" ? ",\"tanggal_upload\":\"" + timeStr + "\"" : "") +  
+                  ",\"status\":\"" + status + "\"" +  
+                  ",\"status_lampu\":\"" + lamp + "\"" +  
+                  ",\"status_pompa\":\"" + pump + "\"}";  
+
+    Serial.println("[Supabase] Uploading data...");  
+    int httpCode = http.POST(json);  
+      
+    if (httpCode >= 200 && httpCode < 300) {  
+      Serial.printf("[Supabase] Berhasil Terkirim! Status: %d\n", httpCode);  
+    } else if (httpCode > 0) {  
+      String response = http.getString();  
+      Serial.printf("[Supabase] Gagal Mengirim. HTTP Code: %d\n", httpCode);  
+      Serial.printf("[Supabase] Alasan: %s\n", response.c_str());  
+    } else {  
+      Serial.printf("[Supabase] Gagal Koneksi. Error: %s\n", http.errorToString(httpCode).c_str());  
+    }  
+      
+    http.end();  
   } else {
     Serial.println("[Supabase] Gagal: WiFi tidak terhubung!");
   }
@@ -104,14 +105,12 @@ void uploadToSupabase(float hum, String status, String lamp, String pump) {
 void setup_wifi() {
   delay(10);
   Serial.println("Connecting to WiFi...");
-  
   WiFi.begin(ssid, password);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-
   Serial.println("\nWiFi connected!");
 }
 
@@ -121,7 +120,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   for (int i = 0; i < length; i++) {
     message += (char)payload[i];
   }
-  
+
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
@@ -130,7 +129,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (String(topic) == "esp32/statusiqbal/mode") {
     isAutoMode = (message == "auto");
     Serial.println(isAutoMode ? "Mode: AUTO" : "Mode: MANUAL");
-  } 
+  }
   else if (String(topic) == "esp32/statusiqbal/pump") {
     manualPump = (message == "on");
     Serial.println(manualPump ? "Manual Pump: ON" : "Manual Pump: OFF");
@@ -145,40 +144,36 @@ void callback(char* topic, byte* payload, unsigned int length) {
 void reconnect() {
   while (!client.connected()) {
     Serial.print("Connecting MQTT...");
-    
-    // Create a unique client ID using MAC address
-    String clientId = "ESP32MJ-" + WiFi.macAddress();
-    
-    if (client.connect(clientId.c_str(), "esp32/statusiqbal", 0, true, "offline")) {
-      Serial.println("CONNECTED to MQTT ✅");
-      client.publish("esp32/statusiqbal", "online", true);
+    // Unique client ID using MAC address  
+    String clientId = "ESP32MJ-" + WiFi.macAddress();  
       
-      // Subscribe to control topics
-      client.subscribe("esp32/statusiqbal/mode");
-      client.subscribe("esp32/statusiqbal/pump");
-      client.subscribe("esp32/statusiqbal/light");
-    } else {
-      Serial.print("FAILED, rc=");
-      Serial.print(client.state());
-      Serial.println(" trying again in 5s...");
-      delay(5000);
-    }
+    if (client.connect(clientId.c_str(), "esp32/statusiqbal", 0, true, "offline")) {  
+      Serial.println("CONNECTED to MQTT ✅");  
+      client.publish("esp32/statusiqbal", "online", true);  
+        
+      // Subscribe to control topics  
+      client.subscribe("esp32/statusiqbal/mode");  
+      client.subscribe("esp32/statusiqbal/pump");  
+      client.subscribe("esp32/statusiqbal/light");  
+    } else {  
+      Serial.print("FAILED, rc=");  
+      Serial.print(client.state());  
+      Serial.println(" trying again in 5s...");  
+      delay(5000);  
+    }  
   }
 }
 
 void setup() {
   Serial.begin(115200);
-
   pinMode(RELAY1, OUTPUT);
   pinMode(RELAY2, OUTPUT);
-
   digitalWrite(RELAY1, RELAY_OFF);
   digitalWrite(RELAY2, RELAY_OFF);
 
   dht.begin();
-
   setup_wifi();
-  
+
   // Konfigurasi waktu dari NTP
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
 
@@ -193,68 +188,67 @@ void loop() {
   client.loop();
 
   unsigned long now = millis();
-
   if (now - lastMsg > 2000) {
     lastMsg = now;
 
-    float suhu = dht.readTemperature();
-    float kelembapan = dht.readHumidity();
+    float suhu = dht.readTemperature();  
+    float kelembapan = dht.readHumidity();  
 
-    if (isnan(suhu) || isnan(kelembapan)) {
-      Serial.println("Gagal baca DHT!");
-      return;
-    }
+    if (isnan(suhu) || isnan(kelembapan)) {  
+      Serial.println("Gagal baca DHT!");  
+      return;  
+    }  
 
-    // ================= CONTROL LOGIC =================
-    if (isAutoMode) {
-      // Logic: <70% Pump ON, Lamp OFF | >90% Lamp ON, Pump OFF | 70-90% NORMAL (OFF/OFF)
-      if (kelembapan < 70.0) {
-        digitalWrite(RELAY1, RELAY_ON);  // Pompa Hidup
-        digitalWrite(RELAY2, RELAY_OFF); // Lampu Mati
-        statusRelay = "KERING / PENYIRAMAN";
-      } 
-      else if (kelembapan > 90.0) {
-        digitalWrite(RELAY1, RELAY_OFF); // Pompa Mati
-        digitalWrite(RELAY2, RELAY_ON);  // Lampu Nyala
-        statusRelay = "TERLALU LEMBAB";
-      } 
-      else {
-        digitalWrite(RELAY1, RELAY_OFF); // Pompa Mati
-        digitalWrite(RELAY2, RELAY_OFF); // Lampu Mati
-        statusRelay = "NORMAL";
-      }
-    } else {
-      // Manual Mode (App Based)
-      digitalWrite(RELAY1, manualPump ? RELAY_ON : RELAY_OFF);
-      digitalWrite(RELAY2, manualLight ? RELAY_ON : RELAY_OFF);
-      statusRelay = "MANUAL";
-    }
+    // ================= CONTROL LOGIC =================  
+    if (isAutoMode) {  
+      // Logic: <70% Pump ON, Lamp OFF | >90% Lamp ON, Pump OFF | 70-90% NORMAL (OFF/OFF)  
+      if (kelembapan < 70.0) {  
+        digitalWrite(RELAY1, RELAY_ON);  // Pompa Hidup  
+        digitalWrite(RELAY2, RELAY_OFF); // Lampu Mati  
+        statusRelay = "KERING / PENYIRAMAN";  
+      }   
+      else if (kelembapan > 90.0) {  
+        digitalWrite(RELAY1, RELAY_OFF); // Pompa Mati  
+        digitalWrite(RELAY2, RELAY_ON);  // Lampu Nyala  
+        statusRelay = "TERLALU LEMBAB";  
+      }   
+      else {  
+        digitalWrite(RELAY1, RELAY_OFF); // Pompa Mati  
+        digitalWrite(RELAY2, RELAY_OFF); // Lampu Mati  
+        statusRelay = "NORMAL";  
+      }  
+    } else {  
+      // Manual Mode (App Based)  
+      digitalWrite(RELAY1, manualPump ? RELAY_ON : RELAY_OFF);  
+      digitalWrite(RELAY2, manualLight ? RELAY_ON : RELAY_OFF);  
+      statusRelay = "MANUAL";  
+    }  
 
-    // ================= STATUS REPORTING =================
-    bool currentPump = (digitalRead(RELAY1) == RELAY_ON);
-    bool currentLight = (digitalRead(RELAY2) == RELAY_ON);
+    // ================= STATUS REPORTING =================  
+    bool currentPump = (digitalRead(RELAY1) == RELAY_ON);  
+    bool currentLight = (digitalRead(RELAY2) == RELAY_ON);  
 
-    // Upload logic: Action transition OR Periodic (30 mins) if Normal
-    unsigned long nowMillis = millis();
-    bool actionDetected = (currentPump != prevPump || currentLight != prevLight);
-    
-    // Interval 30 menit = 1800000 ms
-    bool isPeriodicTime = (nowMillis - lastPeriodicUpload >= 1800000);
+    // Upload logic: Action transition OR Periodic (30 mins) if Normal  
+    unsigned long nowMillis = millis();  
+    bool actionDetected = (currentPump != prevPump || currentLight != prevLight);  
+      
+    // Interval 30 menit = 1800000 ms  
+    bool isPeriodicTime = (nowMillis - lastPeriodicUpload >= 1800000);  
 
-    if (actionDetected) {
-      Serial.println("[Reporting] Deteksi Perubahan Status!");
-    }
+    if (actionDetected) {  
+      Serial.println("[Reporting] Deteksi Perubahan Status!");  
+    }  
 
-    if (actionDetected || (statusRelay == "NORMAL" && isPeriodicTime)) {
-      String statusLampuUpload = currentLight ? (isAutoMode ? "MENYALA - OTOMATIS" : "MENYALA - MANUAL") : "MATI";
-      String statusPompaUpload = currentPump ? (isAutoMode ? "MENYALA - OTOMATIS" : "MENYALA - MANUAL") : "MATI";
+    if (actionDetected || (statusRelay == "NORMAL" && isPeriodicTime)) {  
+      String statusLampuUpload = currentLight ? (isAutoMode ? "MENYALA - OTOMATIS" : "MENYALA - MANUAL") : "MATI";  
+      String statusPompaUpload = currentPump ? (isAutoMode ? "MENYALA - OTOMATIS" : "MENYALA - MANUAL") : "MATI";  
 
-      Serial.println("[Reporting] Memulai Upload ke Supabase...");
-      uploadToSupabase(kelembapan, statusRelay, statusLampuUpload, statusPompaUpload);
-      lastPeriodicUpload = nowMillis;
-    }
-    
-    // MQTT Reporting
+      Serial.println("[Reporting] Memulai Upload ke Supabase...");  
+      uploadToSupabase(kelembapan, statusRelay, statusLampuUpload, statusPompaUpload);  
+      lastPeriodicUpload = nowMillis;  
+    }  
+      
+    // MQTT Reporting  
     client.publish("esp32/dht/suhu", String(suhu).c_str());
     client.publish("esp32/dht/kelembapan", String(kelembapan).c_str());
     client.publish("esp32/relay/status", statusRelay.c_str());
@@ -262,15 +256,15 @@ void loop() {
     client.publish("esp32/statusiqbal/light", currentLight ? "on" : "off", true);
     client.publish("esp32/statusiqbal/mode", isAutoMode ? "auto" : "manual", true);
 
-    // Save states for next comparison
-    prevPump = currentPump;
-    prevLight = currentLight;
+    // Save states for next comparison  
+    prevPump = currentPump;  
+    prevLight = currentLight;  
 
-    // Serial Debug
-    Serial.print("Mode: "); Serial.print(isAutoMode ? "AUTO" : "MANUAL");
-    Serial.print(" | Hum: "); Serial.print(kelembapan);
-    Serial.print("% | Pump: "); Serial.print(currentPump ? "ON" : "OFF");
-    Serial.print(" | Light: "); Serial.println(currentLight ? "ON" : "OFF");
+    // Serial Debug  
+    Serial.print("Mode: "); Serial.print(isAutoMode ? "AUTO" : "MANUAL");  
+    Serial.print(" | Hum: "); Serial.print(kelembapan);  
+    Serial.print("% | Pump: "); Serial.print(currentPump ? "ON" : "OFF");  
+    Serial.print(" | Light: "); Serial.print(currentLight ? "ON" : "OFF");  
     Serial.print(" | Status: "); Serial.println(statusRelay);
   }
 }

@@ -35,4 +35,48 @@ class UserRepository {
       return null;
     }
   }
+
+  /// Update username in the custom `users` table.
+  Future<bool> updateUsername(String oldUsername, String newUsername) async {
+    try {
+      final response = await _supabase
+          .from('users')
+          .update({'username': newUsername})
+          .eq('username', oldUsername)
+          .select();
+
+      return response.isNotEmpty;
+    } catch (e) {
+      print('Update username error: $e');
+      return false;
+    }
+  }
+
+  /// Update password in the custom `users` table.
+  Future<bool> updatePassword(String username, String newPassword) async {
+    try {
+      final response = await _supabase
+          .from('users')
+          .update({'password': newPassword})
+          .eq('username', username)
+          .select();
+
+      return response.isNotEmpty;
+    } catch (e) {
+      print('Update password error: $e');
+      return false;
+    }
+  }
+
+  /// Delete a user from the custom `users` table.
+  Future<bool> deleteUser(String username) async {
+    try {
+      await _supabase.from('users').delete().eq('username', username);
+      return true;
+    } catch (e) {
+      print('Delete user error: $e');
+      return false;
+    }
+  }
 }
+

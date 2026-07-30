@@ -43,7 +43,7 @@ class HistoryRepository {
         'status': status,
         'status_lampu': lightStatus,
         'status_pompa': pumpStatus,
-        'tanggal_upload': DateFormat('HH:mm:ss').format(DateTime.now()),
+        'tanggal_upload': DateTime.now().toIso8601String(),
       });
       return true;
     } catch (e) {
